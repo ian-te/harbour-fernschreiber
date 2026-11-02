@@ -677,22 +677,33 @@ void TDLibWrapper::sendVideoNoteMessage(qlonglong chatId, const QString &filePat
     QVariantMap requestObject(newSendMessageRequest(chatId, replyToMessageId));
     QVariantMap inputMessageContent;
     inputMessageContent.insert(_TYPE, "inputMessageVideoNote");
-    QVariantMap inputFile;
-    inputFile.insert(_TYPE, "inputFileLocal");
-    inputFile.insert("path", filePath);
-    inputMessageContent.insert("video_note", inputFile);
-    inputMessageContent.insert("duration", duration);
-    inputMessageContent.insert("length", length);
+    QVariantMap thumbnail;
     if (!thumbnailPath.isEmpty()) {
         QVariantMap thumbnailFile;
         thumbnailFile.insert(_TYPE, "inputFileLocal");
         thumbnailFile.insert("path", thumbnailPath);
-        QVariantMap thumbnail;
         thumbnail.insert(_TYPE, "inputThumbnail");
         thumbnail.insert("thumbnail", thumbnailFile);
         thumbnail.insert("width", 320);
         thumbnail.insert("height", 320);
-        inputMessageContent.insert("thumbnail", thumbnail);
+    }
+    // Since 1.8.65 the file, thumbnail, duration and length sit in an inputVideoNote
+    // (like inputVoiceNote, see newInputFile); before that they were fields of the message.
+    const int containerVersion = VERSION_NUMBER(1,8,65);
+    QVariantMap target;
+    if (versionNumber < containerVersion) {
+        inputMessageContent.insert("video_note", newInputFile("inputVideoNote", "video_note", filePath, containerVersion));
+    } else {
+        target = newInputFile("inputVideoNote", "video_note", filePath, containerVersion).toMap();
+    }
+    QVariantMap &fields = (versionNumber < containerVersion) ? inputMessageContent : target;
+    fields.insert("duration", duration);
+    fields.insert("length", length);
+    if (!thumbnail.isEmpty()) {
+        fields.insert("thumbnail", thumbnail);
+    }
+    if (versionNumber >= containerVersion) {
+        inputMessageContent.insert("video_note", target);
     }
     requestObject.insert("input_message_content", inputMessageContent);
     this->sendRequest(requestObject);
