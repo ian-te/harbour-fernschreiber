@@ -213,21 +213,24 @@ Page {
         }
 
         if (chatPage.myUserId === message.sender_id.user_id) {
+            // Telegram-style ticks instead of emoji: ✓ sent, ✓✓ read (highlighted),
+            // a clock while sending, a warning sign when sending failed.
             messageStatusSuffix += "&nbsp;&nbsp;"
+            var iconSize = Math.round(Theme.fontSizeTiny * 1.1);
             if (listItemIndex <= lastReadSentIndex) {
                 // Read by other party
-                messageStatusSuffix += Emoji.emojify("✅", Theme.fontSizeTiny);
+                messageStatusSuffix += "<font color=\"" + Theme.highlightColor + "\"><b>✓✓</b></font>";
             } else {
                 // Not yet read by other party
                 if (message.sending_state) {
                     if (message.sending_state['@type'] === "messageSendingStatePending") {
-                        messageStatusSuffix += Emoji.emojify("🕙", Theme.fontSizeTiny);
+                        messageStatusSuffix += "<img src=\"image://theme/icon-s-time?" + Theme.secondaryHighlightColor + "\" width=\"" + iconSize + "\" height=\"" + iconSize + "\" align=\"middle\">";
                     } else {
                         // Sending failed...
-                        messageStatusSuffix += Emoji.emojify("❌", Theme.fontSizeTiny);
+                        messageStatusSuffix += "<img src=\"image://theme/icon-s-filled-warning?" + Theme.errorColor + "\" width=\"" + iconSize + "\" height=\"" + iconSize + "\" align=\"middle\">";
                     }
                 } else {
-                    messageStatusSuffix += Emoji.emojify("☑️", Theme.fontSizeTiny);
+                    messageStatusSuffix += "<b>✓</b>";
                 }
             }
         }
