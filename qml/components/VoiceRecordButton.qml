@@ -65,7 +65,8 @@ Item {
         dragY = 0;
         phase = "holding";
         if (videoMode) {
-            if (!videoNoteRecorder.start()) {
+            // Usually already started on touch (see onPressed), to hide the camera's start-up time.
+            if (!videoNoteRecorder.recording && !videoNoteRecorder.start()) {
                 phase = "idle";
                 appNotification.show(qsTr("Couldn't start the camera"));
             }
@@ -331,6 +332,10 @@ Item {
             startX = mouse.x;
             startY = mouse.y;
             voiceRecordButton.phase = "pressed";
+            // The camera takes about a second to deliver frames: start it on touch, not after the hold.
+            if (voiceRecordButton.videoMode && !videoNoteRecorder.recording) {
+                videoNoteRecorder.start();
+            }
             holdTimer.restart();
         }
         onPositionChanged: {
@@ -351,6 +356,9 @@ Item {
         onReleased: {
             if (voiceRecordButton.phase === "pressed") {
                 holdTimer.stop();
+                if (voiceRecordButton.videoMode && videoNoteRecorder.recording) {
+                    videoNoteRecorder.stop(false);   // a tap, not a recording
+                }
                 voiceRecordButton.phase = "idle";
                 voiceRecordButton.tapped();
             } else if (voiceRecordButton.phase === "holding") {
@@ -366,6 +374,9 @@ Item {
         onCanceled: {
             holdTimer.stop();
             if (voiceRecordButton.phase === "pressed") {
+                if (voiceRecordButton.videoMode && videoNoteRecorder.recording) {
+                    videoNoteRecorder.stop(false);
+                }
                 voiceRecordButton.phase = "idle";
             } else if (voiceRecordButton.phase === "holding") {
                 // Lost the touch (e.g. the app went to the background): don't send by accident.

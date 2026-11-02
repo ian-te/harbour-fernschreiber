@@ -37,6 +37,8 @@ class VideoNoteRecorder : public QObject
     Q_PROPERTY(bool recording READ isRecording NOTIFY recordingChanged)
     Q_PROPERTY(int duration READ duration NOTIFY durationChanged)
     Q_PROPERTY(int maximumDuration READ maximumDuration CONSTANT)
+    // False until the camera has delivered its first frame (it takes about a second to start).
+    Q_PROPERTY(bool cameraReady READ isCameraReady NOTIFY cameraReadyChanged)
 
 public:
     explicit VideoNoteRecorder(QObject *parent = nullptr);
@@ -46,6 +48,7 @@ public:
     bool isRecording() const { return m_recording; }
     int duration() const { return m_durationMs.load(); }   // milliseconds
     int maximumDuration() const { return 60000; }
+    bool isCameraReady() const { return m_firstFrameNs.load() >= 0; }
 
     Q_INVOKABLE bool start();
     // keep = false throws the recording away.
@@ -53,6 +56,7 @@ public:
 
 signals:
     void recordingChanged();
+    void cameraReadyChanged();
     void durationChanged();
     void finished(const QString &path, int durationSeconds, int length, const QString &thumbnailPath);
     void cancelled();

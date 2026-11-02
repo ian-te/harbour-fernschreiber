@@ -130,7 +130,7 @@ bool VideoNoteRecorder::start()
         "appsrc name=videosrc is-live=true format=time do-timestamp=false "
         "  caps=video/x-h264,stream-format=byte-stream,alignment=au,width=%1,height=%1,framerate=0/1 "
         "  ! h264parse ! queue ! mux. "
-        "pulsesrc ! audioconvert ! audioresample ! audio/x-raw,rate=48000,channels=1 "
+        "pulsesrc ! audioconvert name=audioconvert ! audioresample ! audio/x-raw,rate=48000,channels=1 "
         "  ! avenc_aac bitrate=64000 ! aacparse ! queue ! mux. "
         "mp4mux name=mux faststart=true ! filesink name=sink").arg(SIZE);
     GError *error = nullptr;
@@ -149,6 +149,31 @@ bool VideoNoteRecorder::start()
     g_object_set(sink, "location", m_path.toUtf8().constData(), nullptr);
     gst_object_unref(sink);
     m_videoSrc = gst_bin_get_by_name(GST_BIN(m_pipeline), "videosrc");
+
+    // The microphone is running long before the camera delivers its first frame (about a
+    // second). Audio from before that frame would start the file's audio track earlier than
+    // its video track; iOS honours that offset and plays the sound ahead of the picture.
+    // Drop it, so both tracks start together.
+    GstElement *audioConvert = gst_bin_get_by_name(GST_BIN(m_pipeline), "audioconvert");
+    GstPad *audioPad = gst_element_get_static_pad(audioConvert, "sink");
+    gst_pad_add_probe(audioPad, GST_PAD_PROBE_TYPE_BUFFER, [](GstPad *, GstPadProbeInfo *info, gpointer data) -> GstPadProbeReturn {
+        VideoNoteRecorder *recorder = static_cast<VideoNoteRecorder *>(data);
+        const qint64 firstFrame = recorder->m_firstFrameNs.load();
+        if (firstFrame < 0) {
+            return GST_PAD_PROBE_DROP;
+        }
+        GstBuffer *buffer = GST_PAD_PROBE_INFO_BUFFER(info);
+        if (GST_BUFFER_PTS_IS_VALID(buffer)) {
+            const GstClockTime end = GST_BUFFER_PTS(buffer)
+                    + (GST_BUFFER_DURATION_IS_VALID(buffer) ? GST_BUFFER_DURATION(buffer) : 0);
+            if (qint64(end) <= firstFrame) {
+                return GST_PAD_PROBE_DROP;
+            }
+        }
+        return GST_PAD_PROBE_OK;
+    }, this, nullptr);
+    gst_object_unref(audioPad);
+    gst_object_unref(audioConvert);
 
     if (gst_element_set_state(m_pipeline, GST_STATE_PLAYING) == GST_STATE_CHANGE_FAILURE) {
         teardown();
@@ -170,6 +195,7 @@ bool VideoNoteRecorder::start()
     m_keep = false;
     m_pollTimer.start();
     emit recordingChanged();
+    emit cameraReadyChanged();
     emit durationChanged();
     LOG("Video note recording to" << m_path);
     return true;
@@ -225,6 +251,7 @@ void VideoNoteRecorder::handleFrame(const webrtc::VideoFrame &frame)
     }
     if (m_firstFrameNs.load() < 0) {
         m_firstFrameNs.store(qint64(pts));
+        QMetaObject::invokeMethod(this, "cameraReadyChanged", Qt::QueuedConnection);
     }
     const qint64 elapsedMs = (qint64(pts) - m_firstFrameNs.load()) / 1000000;
     m_durationMs.store(int(elapsedMs));

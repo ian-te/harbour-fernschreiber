@@ -2532,6 +2532,11 @@ Page {
                                 gl_FragColor = texture2D(source, vec2(1.0 - qt_TexCoord0.x, qt_TexCoord0.y)) * inside * qt_Opacity;
                             }"
                     }
+                    BusyIndicator {
+                        anchors.centerIn: parent
+                        size: BusyIndicatorSize.Large
+                        running: !videoNoteRecorder.cameraReady
+                    }
                     // Progress ring towards Telegram's 60 s limit.
                     Canvas {
                         id: progressRing
