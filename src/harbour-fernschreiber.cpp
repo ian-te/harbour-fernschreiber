@@ -58,6 +58,7 @@
 #include "contactsmodel.h"
 #ifdef FERNSCHREIBER_VOIP
 #include "voip/voipmanager.h"
+#include "voip/videonoterecorder.h"
 #endif
 
 // The default filter can be overridden by QT_LOGGING_RULES envinronment variable, e.g.
@@ -150,8 +151,11 @@ int main(int argc, char *argv[])
     VoipManager *voipManager = new VoipManager(tdLibWrapper, view.data());
     context->setContextProperty("voipManager", voipManager);
     context->setContextProperty("voiceCallsAvailable", true);
+    context->setContextProperty("videoNoteRecorder", new fernschreiber::VideoNoteRecorder(view.data()));
+    context->setContextProperty("videoNotesAvailable", true);
 #else
     context->setContextProperty("voiceCallsAvailable", false);
+    context->setContextProperty("videoNotesAvailable", false);
 #endif
 
     FernschreiberUtils *fernschreiberUtils = new FernschreiberUtils(view.data());

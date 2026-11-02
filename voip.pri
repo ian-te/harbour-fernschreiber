@@ -66,6 +66,9 @@ SOURCES += \
     $$files($$TGCALLS_SRC/utils/*.cpp) \
     $$files($$TGCALLS_SRC/third-party/*.cpp)
 
+# Video notes: openh264 (linked below) + GStreamer for the MP4 with microphone AAC.
+PKGCONFIG += gstreamer-1.0 gstreamer-app-1.0
+
 # Our Sailfish tgcalls platform interface, the TDLib<->tgcalls bridge, and the
 # camera capture / video rendering pipeline (QtMultimedia <-> WebRTC).
 SOURCES += \
@@ -74,8 +77,10 @@ SOURCES += \
     $$PWD/src/voip/callcameragrabber.cpp \
     $$PWD/src/voip/videocapturer.cpp \
     $$PWD/src/voip/videorenderer.cpp \
-    $$PWD/src/voip/callaudiorouter.cpp
+    $$PWD/src/voip/callaudiorouter.cpp \
+    $$PWD/src/voip/videonoterecorder.cpp
 HEADERS += \
+    $$PWD/src/voip/videonoterecorder.h \
     $$PWD/src/voip/sailfishinterface.h \
     $$PWD/src/voip/voipmanager.h \
     $$PWD/src/voip/callcameragrabber.h \

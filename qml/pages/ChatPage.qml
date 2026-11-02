@@ -19,6 +19,7 @@
 import QtQuick 2.6
 import QtGraphicalEffects 1.0
 import Sailfish.Silica 1.0
+import QtMultimedia 5.6
 import Sailfish.Pickers 1.0
 import Nemo.Thumbnailer 1.0
 import WerkWolf.Fernschreiber 1.0
@@ -2266,7 +2267,18 @@ Page {
                                 tdLibWrapper.sendVoiceNoteMessage(chatInformation.id, path, "", durationSeconds, waveform, newMessageColumn.replyToMessageId);
                                 newMessageInReplyToRow.inReplyToMessage = null;
                             }
-                            onTapped: appNotification.show(qsTr("Hold to record, release to send"))
+                            onVideoSendRequested: {
+                                tdLibWrapper.sendVideoNoteMessage(chatInformation.id, path, durationSeconds, length, thumbnailPath, newMessageColumn.replyToMessageId);
+                                newMessageInReplyToRow.inReplyToMessage = null;
+                            }
+                            // A tap switches between voice and round video messages, like in Telegram.
+                            onTapped: {
+                                if (videoNotesAvailable && chatPage.hasSendPrivilege("can_send_video_notes")) {
+                                    mediaMode = (mediaMode === "voice") ? "video" : "voice";
+                                } else {
+                                    appNotification.show(qsTr("Hold to record, release to send"));
+                                }
+                            }
                         }
 
                         Item {
@@ -2461,6 +2473,74 @@ Page {
                 wrapMode: Text.Wrap
                 color: Theme.highlightColor
                 text: qsTr("Are you sure that you want to delete this chat? This action can't be undone and you lose the entire conversation forever!")
+            }
+        }
+    }
+
+    // Round preview while recording a video message.
+    Item {
+        id: videoNotePreview
+        readonly property real diameter: Math.min(chatPage.width, chatPage.height) * 0.7
+        visible: voiceRecordButton.recording && voiceRecordButton.videoMode
+        width: diameter
+        height: diameter
+        anchors.centerIn: parent
+        anchors.verticalCenterOffset: -Theme.itemSizeLarge
+        z: 100
+
+        Loader {
+            anchors.fill: parent
+            active: videoNotesAvailable && videoNotePreview.visible
+            sourceComponent: Component {
+                Item {
+                    Rectangle {
+                        anchors.fill: parent
+                        radius: width / 2
+                        color: Theme.overlayBackgroundColor
+                    }
+                    VideoOutput {
+                        id: videoNoteOutput
+                        anchors.fill: parent
+                        source: videoNoteRecorder.preview
+                        fillMode: VideoOutput.PreserveAspectCrop
+                    }
+                    ShaderEffectSource {
+                        id: videoNoteSource
+                        sourceItem: videoNoteOutput
+                        hideSource: true
+                        visible: false
+                    }
+                    // Mirrored like a selfie view; the recording itself isn't.
+                    ShaderEffect {
+                        anchors.fill: parent
+                        property variant source: videoNoteSource
+                        fragmentShader: "
+                            varying highp vec2 qt_TexCoord0;
+                            uniform sampler2D source;
+                            uniform lowp float qt_Opacity;
+                            void main() {
+                                highp vec2 c = qt_TexCoord0 - vec2(0.5);
+                                lowp float inside = 1.0 - smoothstep(0.495, 0.5, length(c));
+                                gl_FragColor = texture2D(source, vec2(1.0 - qt_TexCoord0.x, qt_TexCoord0.y)) * inside * qt_Opacity;
+                            }"
+                    }
+                    // Progress ring towards Telegram's 60 s limit.
+                    Canvas {
+                        id: progressRing
+                        anchors.fill: parent
+                        property real progress: videoNoteRecorder.duration / videoNoteRecorder.maximumDuration
+                        onProgressChanged: requestPaint()
+                        onPaint: {
+                            var ctx = getContext("2d");
+                            ctx.reset();
+                            ctx.lineWidth = Theme.paddingSmall;
+                            ctx.strokeStyle = Theme.highlightColor;
+                            ctx.beginPath();
+                            ctx.arc(width / 2, height / 2, width / 2 - ctx.lineWidth / 2, -Math.PI / 2, -Math.PI / 2 + 2 * Math.PI * progress);
+                            ctx.stroke();
+                        }
+                    }
+                }
             }
         }
     }

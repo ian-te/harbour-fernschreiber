@@ -620,6 +620,33 @@ void TDLibWrapper::sendDocumentMessage(qlonglong chatId, const QString &filePath
     this->sendRequest(requestObject);
 }
 
+void TDLibWrapper::sendVideoNoteMessage(qlonglong chatId, const QString &filePath, int duration, int length, const QString &thumbnailPath, qlonglong replyToMessageId)
+{
+    LOG("Sending video note message" << chatId << filePath << duration << length << replyToMessageId);
+    QVariantMap requestObject(newSendMessageRequest(chatId, replyToMessageId));
+    QVariantMap inputMessageContent;
+    inputMessageContent.insert(_TYPE, "inputMessageVideoNote");
+    QVariantMap inputFile;
+    inputFile.insert(_TYPE, "inputFileLocal");
+    inputFile.insert("path", filePath);
+    inputMessageContent.insert("video_note", inputFile);
+    inputMessageContent.insert("duration", duration);
+    inputMessageContent.insert("length", length);
+    if (!thumbnailPath.isEmpty()) {
+        QVariantMap thumbnailFile;
+        thumbnailFile.insert(_TYPE, "inputFileLocal");
+        thumbnailFile.insert("path", thumbnailPath);
+        QVariantMap thumbnail;
+        thumbnail.insert(_TYPE, "inputThumbnail");
+        thumbnail.insert("thumbnail", thumbnailFile);
+        thumbnail.insert("width", 320);
+        thumbnail.insert("height", 320);
+        inputMessageContent.insert("thumbnail", thumbnail);
+    }
+    requestObject.insert("input_message_content", inputMessageContent);
+    this->sendRequest(requestObject);
+}
+
 void TDLibWrapper::sendVoiceNoteMessage(qlonglong chatId, const QString &filePath, const QString &message, int duration, const QString &waveform, qlonglong replyToMessageId)
 {
     LOG("Sending voice note message" << chatId << filePath << message << duration << replyToMessageId);

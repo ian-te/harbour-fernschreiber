@@ -41,9 +41,13 @@ Item {
     readonly property real cancelDistance: Theme.itemSizeHuge
     readonly property real lockDistance: Theme.itemSizeMedium * 1.5
     readonly property int minimumDurationMs: 700
+    // "voice" or "video" (round video message). A tap switches between them, like in Telegram.
+    property string mediaMode: "voice"
+    readonly property bool videoMode: mediaMode === "video"
 
     // Asks the page to send the finished recording. The page knows the chat and reply target.
     signal sendRequested(string path, int durationSeconds, string waveform)
+    signal videoSendRequested(string path, int durationSeconds, int length, string thumbnailPath)
     signal tapped()
 
     width: Theme.itemSizeSmall
@@ -60,7 +64,14 @@ Item {
         dragX = 0;
         dragY = 0;
         phase = "holding";
-        fernschreiberUtils.startRecordingVoiceNote();
+        if (videoMode) {
+            if (!videoNoteRecorder.start()) {
+                phase = "idle";
+                appNotification.show(qsTr("Couldn't start the camera"));
+            }
+        } else {
+            fernschreiberUtils.startRecordingVoiceNote();
+        }
     }
 
     function finish(send) {
@@ -72,7 +83,12 @@ Item {
         phase = "stopping";
         dragX = 0;
         dragY = 0;
-        fernschreiberUtils.stopRecordingVoiceNote();
+        if (videoMode) {
+            // The recorder answers with finished/cancelled/failed.
+            videoNoteRecorder.stop(send);
+        } else {
+            fernschreiberUtils.stopRecordingVoiceNote();
+        }
         stopFallbackTimer.restart();
     }
 
@@ -95,7 +111,40 @@ Item {
     Component.onDestruction: {
         if (recording) {
             sendWhenStopped = false;
-            fernschreiberUtils.stopRecordingVoiceNote();
+            if (videoMode) {
+                videoNoteRecorder.stop(false);
+            } else {
+                fernschreiberUtils.stopRecordingVoiceNote();
+            }
+        }
+    }
+
+    Connections {
+        target: videoNotesAvailable ? videoNoteRecorder : null
+        onDurationChanged: {
+            if (voiceRecordButton.recording && voiceRecordButton.videoMode) {
+                voiceRecordButton.durationSeconds = Math.floor(videoNoteRecorder.duration / 1000);
+            }
+        }
+        onFinished: {
+            stopFallbackTimer.stop();
+            if (voiceRecordButton.sendWhenStopped) {
+                voiceRecordButton.videoSendRequested(path, durationSeconds, length, thumbnailPath);
+            }
+            voiceRecordButton.sendWhenStopped = false;
+            voiceRecordButton.phase = "idle";
+        }
+        onCancelled: {
+            stopFallbackTimer.stop();
+            voiceRecordButton.sendWhenStopped = false;
+            voiceRecordButton.phase = "idle";
+        }
+        onFailed: {
+            stopFallbackTimer.stop();
+            Debug.log("[VoiceRecordButton] video note failed: " + reason);
+            appNotification.show(qsTr("Video message failed: %1").arg(reason));
+            voiceRecordButton.sendWhenStopped = false;
+            voiceRecordButton.phase = "idle";
         }
     }
 
@@ -108,7 +157,7 @@ Item {
         }
         onVoiceNoteRecordingStateChanged: {
             voiceRecordButton.recordingState = state;
-            if (voiceRecordButton.phase === "stopping" && state === FernschreiberUtilities.Ready) {
+            if (voiceRecordButton.phase === "stopping" && !voiceRecordButton.videoMode && state === FernschreiberUtilities.Ready) {
                 voiceRecordButton.handleStopped();
             }
         }
@@ -117,9 +166,12 @@ Item {
     // A recording stopped before it really started never reports Finalizing -> Ready.
     Timer {
         id: stopFallbackTimer
-        interval: 3000
+        interval: 6000
         onTriggered: {
-            if (voiceRecordButton.phase === "stopping") {
+            if (voiceRecordButton.phase === "stopping" && voiceRecordButton.videoMode) {
+                voiceRecordButton.sendWhenStopped = false;
+                voiceRecordButton.phase = "idle";
+            } else if (voiceRecordButton.phase === "stopping") {
                 Debug.log("[VoiceRecordButton] no Ready after stop, state " + voiceRecordButton.recordingState);
                 voiceRecordButton.handleStopped();
             }
@@ -256,7 +308,8 @@ Item {
 
     Icon {
         anchors.centerIn: recordingCircle.visible ? recordingCircle : parent
-        source: voiceRecordButton.phase === "locked" ? "image://theme/icon-m-send" : "image://theme/icon-m-mic"
+        source: voiceRecordButton.phase === "locked" ? "image://theme/icon-m-send"
+                : (voiceRecordButton.videoMode ? "image://theme/icon-m-video" : "image://theme/icon-m-mic")
         highlighted: mouseArea.pressed && !voiceRecordButton.recording
     }
 
