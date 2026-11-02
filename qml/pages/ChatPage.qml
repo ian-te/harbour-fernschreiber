@@ -451,6 +451,14 @@ Page {
         chatPage.focus = true;
     }
 
+    // Opens the search field, as "Search in Chat" in the pull-down menu does (used by the profile page).
+    function startSearchInChat() {
+        if (!chatPage.isSecretChat) {
+            chatOverviewItem.visible = false;
+            searchInChatField.focus = true;
+        }
+    }
+
     function showMessage(messageId, initialRun) {
         // Means we tapped a quoted message and had to load it.
         if(initialRun) {

@@ -364,25 +364,103 @@ SilicaFlickable {
                 height: imageContainer.hasImage ? imageContainer.maxDimension : 0
             }
 
+            // Telegram-style header: status under the photo, then a row of actions.
             Label {
-                id: copyIdText
-                x: Math.max(headerItem.x + imageContainer.x - groupInfoItem.x + (imageContainer.width - width)/2, 0)
-                text: chatInformationPage.chatPartnerGroupId
+                id: profileStatusText
+                width: parent.width
+                horizontalAlignment: Text.AlignHCenter
                 font.pixelSize: Theme.fontSizeSmall
-                color: copyIdMouseArea.pressed ? Theme.secondaryHighlightColor : Theme.highlightColor
+                color: Theme.secondaryHighlightColor
+                text: (chatInformationPage.isPrivateChat || chatInformationPage.isSecretChat)
+                      ? (chatInformationPage.privateChatUserInformation.status
+                         ? Functions.getChatPartnerStatusText(chatInformationPage.privateChatUserInformation.status["@type"],
+                                                              chatInformationPage.privateChatUserInformation.status.was_online)
+                         : "")
+                      : headerItem.description
                 visible: text !== ""
+            }
 
-                MouseArea {
-                    id: copyIdMouseArea
-                    anchors {
-                        fill: parent
-                        margins: -Theme.paddingLarge
-                    }
+            Item {
+                width: parent.width
+                height: Theme.paddingMedium
+            }
+
+            Row {
+                id: profileActions
+                anchors.horizontalCenter: parent.horizontalCenter
+                readonly property bool isUserChat: chatInformationPage.isPrivateChat || chatInformationPage.isSecretChat
+                readonly property bool isSelf: isUserChat && chatInformationPage.privateChatUserInformation.id === chatInformationPage.myUserId
+                readonly property bool canCall: voiceCallsAvailable && chatInformationPage.isPrivateChat && !isSelf
+                readonly property int buttonCount: 1 + (canCall ? 2 : 0) + (chatInformationPage.userIsMember ? 1 : 0)
+                                                   + (chatPageBehind() && !chatInformationPage.isSecretChat ? 1 : 0)
+                readonly property real buttonWidth: Math.min(Theme.itemSizeExtraLarge, groupInfoItem.width / Math.max(1, buttonCount))
+
+                // The chat page this profile was opened from, if any.
+                function chatPageBehind() {
+                    var previous = pageStack.previousPage(chatInformationPage);
+                    return (previous && previous.chatInformation && previous.chatInformation.id === chatInformationPage.chatInformation.id) ? previous : null;
+                }
+
+                ProfileActionButton {
+                    width: profileActions.buttonWidth
+                    iconSource: "image://theme/icon-m-message"
+                    text: qsTr("Chat", "profile action button: open the chat")
                     onClicked: {
-                        Clipboard.text = copyIdText.text
-                        appNotification.show(qsTr("ID has been copied to the clipboard."));
+                        if (profileActions.chatPageBehind()) {
+                            pageStack.navigateBack();
+                        } else if (chatInformationPage.chatInformation.id) {
+                            pageStack.push(Qt.resolvedUrl("../../pages/ChatPage.qml"), { "chatInformation": chatInformationPage.chatInformation });
+                        } else if (profileActions.isUserChat) {
+                            tdLibWrapper.createPrivateChat(chatInformationPage.chatPartnerGroupId, "openDirectly");
+                        }
                     }
                 }
+                ProfileActionButton {
+                    visible: profileActions.canCall
+                    width: profileActions.buttonWidth
+                    iconSource: "image://theme/icon-m-call"
+                    text: qsTr("Call", "profile action button")
+                    onClicked: voipManager.startCall(chatInformationPage.privateChatUserInformation.id, false)
+                }
+                ProfileActionButton {
+                    visible: profileActions.canCall
+                    width: profileActions.buttonWidth
+                    iconSource: "image://theme/icon-m-video"
+                    text: qsTr("Video", "profile action button: video call")
+                    onClicked: voipManager.startCall(chatInformationPage.privateChatUserInformation.id, true)
+                }
+                ProfileActionButton {
+                    visible: chatInformationPage.userIsMember
+                    width: profileActions.buttonWidth
+                    readonly property bool muted: chatInformationPage.chatInformation.notification_settings
+                                                  && chatInformationPage.chatInformation.notification_settings.mute_for > 0
+                    iconSource: muted ? "image://theme/icon-m-speaker-mute" : "image://theme/icon-m-speaker-on"
+                    text: muted ? qsTr("Unmute", "profile action button") : qsTr("Mute", "profile action button")
+                    onClicked: {
+                        var newNotificationSettings = chatInformationPage.chatInformation.notification_settings;
+                        newNotificationSettings.mute_for = muted ? 0 : 6666666;
+                        newNotificationSettings.use_default_mute_for = false;
+                        tdLibWrapper.setChatNotificationSettings(chatInformationPage.chatInformation.id, newNotificationSettings);
+                    }
+                }
+                ProfileActionButton {
+                    visible: !!profileActions.chatPageBehind() && !chatInformationPage.isSecretChat
+                    width: profileActions.buttonWidth
+                    iconSource: "image://theme/icon-m-search"
+                    text: qsTr("Search", "profile action button: search in chat")
+                    onClicked: {
+                        var chatPageItem = profileActions.chatPageBehind();
+                        pageStack.navigateBack();
+                        if (chatPageItem && typeof chatPageItem.startSearchInChat === "function") {
+                            chatPageItem.startSearchInChat();
+                        }
+                    }
+                }
+            }
+
+            Item {
+                width: parent.width
+                height: Theme.paddingMedium
             }
 
             InformationEditArea {
@@ -430,6 +508,43 @@ SilicaFlickable {
                 headerText: qsTr("Phone Number", "user phone number header")
                 text: ((chatInformationPage.isPrivateChat || chatInformationPage.isSecretChat) && chatInformationPage.privateChatUserInformation.phone_number ? "+"+chatInformationPage.privateChatUserInformation.phone_number : "") || ""
                 isLinkedLabel: true
+            }
+
+            InformationTextItem {
+                headerText: qsTr("Username", "user or group username header")
+                text: {
+                    var info = (chatInformationPage.isPrivateChat || chatInformationPage.isSecretChat)
+                               ? chatInformationPage.privateChatUserInformation : chatInformationPage.groupInformation;
+                    return (info && info.usernames && info.usernames.editable_username) ? "@" + info.usernames.editable_username : "";
+                }
+            }
+
+            // Chat/user ID, copied on tap.
+            Column {
+                width: parent.width
+                visible: chatInformationPage.chatPartnerGroupId !== ""
+                SectionHeader {
+                    text: qsTr("ID", "user or group id header")
+                    height: Theme.itemSizeSmall
+                    x: 0
+                }
+                Label {
+                    id: copyIdText
+                    text: chatInformationPage.chatPartnerGroupId
+                    font.pixelSize: Theme.fontSizeMedium
+                    color: copyIdMouseArea.pressed ? Theme.highlightColor : Theme.primaryColor
+                    MouseArea {
+                        id: copyIdMouseArea
+                        anchors {
+                            fill: parent
+                            margins: -Theme.paddingLarge
+                        }
+                        onClicked: {
+                            Clipboard.text = copyIdText.text
+                            appNotification.show(qsTr("ID has been copied to the clipboard."));
+                        }
+                    }
+                }
             }
 
             SectionHeader {
