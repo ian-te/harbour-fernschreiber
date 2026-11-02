@@ -181,6 +181,11 @@ public:
     Q_INVOKABLE void sendVideoMessage(qlonglong chatId, const QString &filePath, const QString &message, qlonglong replyToMessageId = 0);
     Q_INVOKABLE void sendDocumentMessage(qlonglong chatId, const QString &filePath, const QString &message, qlonglong replyToMessageId = 0);
     Q_INVOKABLE void sendAlbumMessage(qlonglong chatId, const QString &contentType, const QStringList &filePaths, const QString &message, qlonglong replyToMessageId = 0);
+    // Telegram's own matching (word prefixes, transliteration, usernames). Results come back
+    // as chatsReceived / usersReceived with @extra set to "<request>:<query>".
+    Q_INVOKABLE void searchChats(const QString &query, int limit = 100);
+    Q_INVOKABLE void searchChatsOnServer(const QString &query, int limit = 100);
+    Q_INVOKABLE void searchContacts(const QString &query, int limit = 200);
     Q_INVOKABLE void sendVideoNoteMessage(qlonglong chatId, const QString &filePath, int duration, int length, const QString &thumbnailPath, qlonglong replyToMessageId = 0);
     Q_INVOKABLE void sendVoiceNoteMessage(qlonglong chatId, const QString &filePath, const QString &message, int duration, const QString &waveform, qlonglong replyToMessageId = 0);
     Q_INVOKABLE void sendLocationMessage(qlonglong chatId, double latitude, double longitude, double horizontalAccuracy, qlonglong replyToMessageId = 0);

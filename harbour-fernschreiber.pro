@@ -41,6 +41,7 @@ SOURCES += src/harbour-fernschreiber.cpp \
     src/tdlibreceiver.cpp \
     src/tdlibwrapper.cpp \
     src/textfiltermodel.cpp \
+    src/idfiltermodel.cpp \
     src/tgsplugin.cpp
 
 DISTFILES += qml/harbour-fernschreiber.qml \
@@ -260,6 +261,7 @@ HEADERS += \
     src/tdlibsecrets.h \
     src/tdlibwrapper.h \
     src/textfiltermodel.h \
+    src/idfiltermodel.h \
     src/tgsplugin.h
 
 # https://github.com/Samsung/rlottie.git

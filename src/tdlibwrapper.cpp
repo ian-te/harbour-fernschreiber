@@ -620,6 +620,39 @@ void TDLibWrapper::sendDocumentMessage(qlonglong chatId, const QString &filePath
     this->sendRequest(requestObject);
 }
 
+void TDLibWrapper::searchChats(const QString &query, int limit)
+{
+    LOG("Searching chats" << query);
+    QVariantMap requestObject;
+    requestObject.insert(_TYPE, "searchChats");
+    requestObject.insert("query", query);
+    requestObject.insert("limit", limit);
+    requestObject.insert(_EXTRA, "searchChats:" + query);
+    this->sendRequest(requestObject);
+}
+
+void TDLibWrapper::searchChatsOnServer(const QString &query, int limit)
+{
+    LOG("Searching chats on server" << query);
+    QVariantMap requestObject;
+    requestObject.insert(_TYPE, "searchChatsOnServer");
+    requestObject.insert("query", query);
+    requestObject.insert("limit", limit);
+    requestObject.insert(_EXTRA, "searchChatsOnServer:" + query);
+    this->sendRequest(requestObject);
+}
+
+void TDLibWrapper::searchContacts(const QString &query, int limit)
+{
+    LOG("Searching contacts" << query);
+    QVariantMap requestObject;
+    requestObject.insert(_TYPE, "searchContacts");
+    requestObject.insert("query", query);
+    requestObject.insert("limit", limit);
+    requestObject.insert(_EXTRA, "searchContacts:" + query);
+    this->sendRequest(requestObject);
+}
+
 void TDLibWrapper::sendVideoNoteMessage(qlonglong chatId, const QString &filePath, int duration, int length, const QString &thumbnailPath, qlonglong replyToMessageId)
 {
     LOG("Sending video note message" << chatId << filePath << duration << length << replyToMessageId);

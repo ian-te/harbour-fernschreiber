@@ -103,11 +103,41 @@ Page {
         }
     }
 
-    TextFilterModel {
+    // Search like Telegram: TDLib matches the query (word prefixes in any language,
+    // transliteration, usernames) and we show the chats it returns, best match first.
+    IdFilterModel {
         id: chatListProxyModel
         sourceModel: (chatSearchField.opacity > 0) ? chatListModel : null
-        filterRoleName: "filter"
-        filterText: chatSearchField.text
+        idRoleName: "chat_id"
+        active: chatSearchField.text.trim() !== ""
+    }
+
+    property var localSearchIds: []
+    property var serverSearchIds: []
+
+    function updateSearchResults() {
+        var merged = localSearchIds.slice();
+        for (var i = 0; i < serverSearchIds.length; i++) {
+            if (merged.indexOf(serverSearchIds[i]) < 0) {
+                merged.push(serverSearchIds[i]);
+            }
+        }
+        chatListProxyModel.ids = merged;
+    }
+
+    Timer {
+        id: chatSearchTimer
+        interval: 250
+        onTriggered: {
+            var query = chatSearchField.text.trim();
+            overviewPage.localSearchIds = [];
+            overviewPage.serverSearchIds = [];
+            overviewPage.updateSearchResults();
+            if (query !== "") {
+                tdLibWrapper.searchChats(query, 100);
+                tdLibWrapper.searchChatsOnServer(query, 100);
+            }
+        }
     }
 
     function openChat(chatId) {
@@ -265,6 +295,21 @@ Page {
             }
         }
         onChatsReceived: {
+            var extra = chats ? (chats["@extra"] || "") : "";
+            var query = chatSearchField.text.trim();
+            if (extra === "searchChats:" + query) {
+                overviewPage.localSearchIds = chats.chat_ids || [];
+                overviewPage.updateSearchResults();
+                return;
+            }
+            if (extra === "searchChatsOnServer:" + query) {
+                overviewPage.serverSearchIds = chats.chat_ids || [];
+                overviewPage.updateSearchResults();
+                return;
+            }
+            if (extra.indexOf("searchChats") === 0) {
+                return; // answer to an older query
+            }
             if(chats && chats.chat_ids && chats.chat_ids.length === 0) {
                 chatListCreatedTimer.restart();
             }
@@ -375,8 +420,9 @@ Page {
             Behavior on opacity { FadeAnimation {} }
             width: parent.width
             height: pageHeader.height
-            placeholderText: qsTr("Filter your chats...")
+            placeholderText: qsTr("Search")
             canHide: text === ""
+            onTextChanged: chatSearchTimer.restart()
 
             onHideClicked: {
                 resetFocus();

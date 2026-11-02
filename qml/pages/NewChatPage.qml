@@ -18,6 +18,7 @@
 */
 import QtQuick 2.6
 import Sailfish.Silica 1.0
+import WerkWolf.Fernschreiber 1.0
 import "../components"
 import "../js/twemoji.js" as Emoji
 import "../js/functions.js" as Functions
@@ -37,8 +38,38 @@ Page {
 
     function reloadContacts() {
         contactsModel.hydrateContacts();
-        contactsListView.model = contactsProxyModel;
+        contactsListView.model = contactSearchModel;
         newChatPage.isLoading = false;
+    }
+
+    // Contact search like Telegram: TDLib matches names in any language and alphabet
+    // (transliteration, word prefixes) and usernames; we show what it returns.
+    IdFilterModel {
+        id: contactSearchModel
+        sourceModel: contactsModel
+        idRoleName: "user_id"
+        active: contactsSearchField.text.trim() !== ""
+    }
+
+    Timer {
+        id: contactSearchTimer
+        interval: 200
+        onTriggered: {
+            var query = contactsSearchField.text.trim();
+            contactSearchModel.ids = [];
+            if (query !== "") {
+                tdLibWrapper.searchContacts(query, 200);
+            }
+        }
+    }
+
+    Connections {
+        target: tdLibWrapper
+        onUsersReceived: {
+            if (extra === "searchContacts:" + contactsSearchField.text.trim()) {
+                contactSearchModel.ids = userIds;
+            }
+        }
     }
 
     onStatusChanged: {
@@ -115,7 +146,7 @@ Page {
                         active: !newChatPage.isLoading
 
                         onTextChanged: {
-                            contactsProxyModel.setFilterWildcard("*" + text + "*");
+                            contactSearchTimer.restart();
                         }
 
                         EnterKey.iconSource: "image://theme/icon-m-enter-close"
