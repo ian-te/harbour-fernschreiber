@@ -183,6 +183,10 @@ public:
     Q_INVOKABLE void sendAlbumMessage(qlonglong chatId, const QString &contentType, const QStringList &filePaths, const QString &message, qlonglong replyToMessageId = 0);
     // Telegram's own matching (word prefixes, transliteration, usernames). Results come back
     // as chatsReceived / usersReceived with @extra set to "<request>:<query>".
+    // Shared media/files/links/voice for the profile page. filter is a searchMessagesFilter type,
+    // e.g. "searchMessagesFilterPhotoAndVideo". Answered by sharedMediaReceived with
+    // extra "sharedMedia:<filter>:<chatId>".
+    Q_INVOKABLE void searchChatSharedMedia(qlonglong chatId, const QString &filter, qlonglong fromMessageId = 0, int limit = 60);
     Q_INVOKABLE void searchChats(const QString &query, int limit = 100);
     Q_INVOKABLE void searchChatsOnServer(const QString &query, int limit = 100);
     Q_INVOKABLE void searchContacts(const QString &query, int limit = 200);
@@ -304,6 +308,7 @@ signals:
     void superGroupUpdated(qlonglong groupId);
     void chatOnlineMemberCountUpdated(const QString &chatId, int onlineMemberCount);
     void messagesReceived(const QVariantList &messages, int totalCount);
+    void sharedMediaReceived(const QString &extra, const QVariantList &messages, int totalCount, qlonglong nextFromMessageId);
     void sponsoredMessageReceived(qlonglong chatId, const QVariantMap &message);
     void messageLinkInfoReceived(const QString &url, const QVariantMap &messageLinkInfo, const QString &extra);
     void newMessageReceived(qlonglong chatId, const QVariantMap &message);

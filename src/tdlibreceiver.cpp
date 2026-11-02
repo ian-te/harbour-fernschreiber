@@ -590,6 +590,13 @@ void TDLibReceiver::processMessages(const QVariantMap &receivedInformation)
 void TDLibReceiver::processFoundChatMessages(const QVariantMap &receivedInformation)
 {
     const int total_count = receivedInformation.value(TOTAL_COUNT).toInt();
+    // Shared media for the profile page: must not reach the open chat's model.
+    const QString extra = receivedInformation.value(_EXTRA).toString();
+    if (extra.startsWith("sharedMedia:")) {
+        emit sharedMediaReceived(extra, cleanupList(receivedInformation.value(MESSAGES).toList()), total_count,
+                                 receivedInformation.value("next_from_message_id").toLongLong());
+        return;
+    }
     LOG("Received found chat messages, amount: " << total_count);
     emit messagesReceived(cleanupList(receivedInformation.value(MESSAGES).toList()), total_count);
 }

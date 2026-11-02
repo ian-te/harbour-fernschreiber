@@ -149,6 +149,7 @@ void TDLibWrapper::initializeTDLibReceiver() {
     connect(this->tdLibReceiver, SIGNAL(superGroupUpdated(qlonglong, QVariantMap)), this, SLOT(handleSuperGroupUpdated(qlonglong, QVariantMap)));
     connect(this->tdLibReceiver, SIGNAL(chatOnlineMemberCountUpdated(QString, int)), this, SIGNAL(chatOnlineMemberCountUpdated(QString, int)));
     connect(this->tdLibReceiver, SIGNAL(messagesReceived(QVariantList, int)), this, SIGNAL(messagesReceived(QVariantList, int)));
+    connect(this->tdLibReceiver, SIGNAL(sharedMediaReceived(QString, QVariantList, int, qlonglong)), this, SIGNAL(sharedMediaReceived(QString, QVariantList, int, qlonglong)));
     connect(this->tdLibReceiver, SIGNAL(sponsoredMessageReceived(qlonglong, QVariantMap)), this, SLOT(handleSponsoredMessage(qlonglong, QVariantMap)));
     connect(this->tdLibReceiver, SIGNAL(messageLinkInfoReceived(QString, QVariantMap, QString)), this, SIGNAL(messageLinkInfoReceived(QString, QVariantMap, QString)));
     connect(this->tdLibReceiver, SIGNAL(newMessageReceived(qlonglong, QVariantMap)), this, SIGNAL(newMessageReceived(qlonglong, QVariantMap)));
@@ -617,6 +618,23 @@ void TDLibWrapper::sendDocumentMessage(qlonglong chatId, const QString &filePath
     LOG("Sending document message" << chatId << filePath << message << replyToMessageId);
     QVariantMap requestObject(newSendMessageRequest(chatId, replyToMessageId));
     requestObject.insert("input_message_content", newInputMessageContent("document", filePath, message));
+    this->sendRequest(requestObject);
+}
+
+void TDLibWrapper::searchChatSharedMedia(qlonglong chatId, const QString &filter, qlonglong fromMessageId, int limit)
+{
+    LOG("Searching shared media" << chatId << filter << fromMessageId);
+    QVariantMap requestObject;
+    requestObject.insert(_TYPE, "searchChatMessages");
+    requestObject.insert(CHAT_ID, chatId);
+    requestObject.insert("query", "");
+    requestObject.insert("from_message_id", fromMessageId);
+    requestObject.insert("offset", 0);
+    requestObject.insert("limit", limit);
+    QVariantMap filterObject;
+    filterObject.insert(_TYPE, filter);
+    requestObject.insert("filter", filterObject);
+    requestObject.insert(_EXTRA, QString("sharedMedia:%1:%2").arg(filter).arg(chatId));
     this->sendRequest(requestObject);
 }
 

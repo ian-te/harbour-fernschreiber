@@ -124,18 +124,35 @@ Item {
         }
     }
     Component.onCompleted: {
-        if(!((isPrivateChat || isSecretChat) && chatPartnerGroupId === myUserId.toString())) {
-            tabModel.append({
-                tab:"ChatInformationTabItemMembersGroups",
-                title: ( chatInformationPage.isPrivateChat || chatInformationPage.isSecretChat ) ? qsTr("Groups", "Button: groups in common (short)") : qsTr("Members", "Button: Group Members"),
-                image: "image://theme/icon-m-people"
-            });
+        var isUserChat = isPrivateChat || isSecretChat;
+        var isSavedMessages = isUserChat && chatPartnerGroupId === myUserId.toString();
+        var membersTab = {
+            tab: "ChatInformationTabItemMembersGroups",
+            title: isUserChat ? qsTr("Groups", "Button: groups in common (short)") : qsTr("Members", "Button: Group Members"),
+            image: "image://theme/icon-m-people",
+            filter: ""
+        };
+        // Like Telegram: members first in groups, groups in common last for people.
+        if (!isUserChat) {
+            tabModel.append(membersTab);
         }
-        if(!(isPrivateChat || isSecretChat) && (groupInformation.status.can_restrict_members || groupInformation.status["@type"] === "chatMemberStatusCreator")) {
+        tabModel.append({ tab: "ChatInformationTabItemSharedMedia", title: qsTr("Media", "Button: shared photos and videos"),
+                          image: "image://theme/icon-m-image", filter: "searchMessagesFilterPhotoAndVideo" });
+        tabModel.append({ tab: "ChatInformationTabItemSharedMedia", title: qsTr("Files", "Button: shared files"),
+                          image: "image://theme/icon-m-document", filter: "searchMessagesFilterDocument" });
+        tabModel.append({ tab: "ChatInformationTabItemSharedMedia", title: qsTr("Links", "Button: shared links"),
+                          image: "image://theme/icon-m-link", filter: "searchMessagesFilterUrl" });
+        tabModel.append({ tab: "ChatInformationTabItemSharedMedia", title: qsTr("Voice", "Button: shared voice messages"),
+                          image: "image://theme/icon-m-mic", filter: "searchMessagesFilterVoiceNote" });
+        if (isUserChat && !isSavedMessages) {
+            tabModel.append(membersTab);
+        }
+        if(!isUserChat && (groupInformation.status.can_restrict_members || groupInformation.status["@type"] === "chatMemberStatusCreator")) {
             tabModel.append({
                 tab:"ChatInformationTabItemSettings",
                 title: qsTr("Settings", "Button: Chat Settings"),
-                image: "image://theme/icon-m-developer-mode"
+                image: "image://theme/icon-m-developer-mode",
+                filter: ""
             });
         }
 //        tabModel.append({tab:"ChatInformationTabItemDebug"});
