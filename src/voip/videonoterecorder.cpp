@@ -28,6 +28,7 @@
 #include "libyuv.h"
 #include "api/video/video_frame.h"
 #include "api/video/i420_buffer.h"
+#include "api/video/video_sink_interface.h"
 
 namespace fernschreiber {
 
