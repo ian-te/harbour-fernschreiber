@@ -30,10 +30,14 @@ import "../js/functions.js" as Functions
 Page {
     id: chatPage
     allowedOrientations: Orientation.All
-    backNavigation: !stickerPickerLoader.active && voiceRecordButton.phase === "idle"
+    backNavigation: voiceRecordButton.phase === "idle"
     forwardNavigation: voiceRecordButton.phase === "idle"
 
     property bool loading: true;
+    // Last seen keyboard height, so the sticker panel takes the keyboard's place at its size.
+    property real keyboardHeight: 0
+    readonly property real stickerPanelHeight: keyboardHeight > Theme.itemSizeLarge ? keyboardHeight
+                                               : Math.round(height * (isPortrait ? 0.4 : 0.5))
     property bool isInitialized: false;
     readonly property int myUserId: tdLibWrapper.getUserInformation().id;
     property var chatInformation;
@@ -496,6 +500,16 @@ Page {
         initializePage();
     }
 
+    Connections {
+        target: Qt.inputMethod
+        onKeyboardRectangleChanged: {
+            var h = Qt.inputMethod.keyboardRectangle.height;
+            if (h > Theme.itemSizeLarge) {
+                chatPage.keyboardHeight = h;
+            }
+        }
+    }
+
     Component.onDestruction: {
         if (chatPage.canSendMessages && !chatPage.isDeletedUser) {
             tdLibWrapper.setChatDraftMessage(chatInformation.id, 0, newMessageColumn.replyToMessageId, newMessageTextField.text,
@@ -952,7 +966,7 @@ Page {
             contentWidth: width
 
             PullDownMenu {
-                visible: chatInformation.id !== chatPage.myUserId && !stickerPickerLoader.active && !voiceNoteOverlayLoader.active && !messageOverlayLoader.active && !stickerSetOverlayLoader.active
+                visible: chatInformation.id !== chatPage.myUserId && !voiceNoteOverlayLoader.active && !messageOverlayLoader.active && !stickerSetOverlayLoader.active
 
                 MenuItem {
                     visible: voiceCallsAvailable && chatPage.isPrivateChat
@@ -1273,7 +1287,7 @@ Page {
                         id: chatView
 
                         visible: !blurred
-                        property bool blurred: messageOverlayLoader.item || stickerPickerLoader.item || voiceNoteOverlayLoader.item || inlineQuery.hasOverlay || stickerSetOverlayLoader.item
+                        property bool blurred: messageOverlayLoader.item || voiceNoteOverlayLoader.item || inlineQuery.hasOverlay || stickerSetOverlayLoader.item
 
                         anchors.fill: parent
                         opacity: chatPage.loading ? 0 : 1
@@ -1589,28 +1603,6 @@ Page {
                     }
 
                     Loader {
-                        id: stickerPickerLoader
-                        active: false
-                        asynchronous: true
-                        width: parent.width
-                        height: active ? parent.height : 0
-                        source: "../components/StickerPicker.qml"
-                    }
-
-                    Connections {
-                        target: stickerPickerLoader.item
-                        onStickerPicked: {
-                            Debug.log("Sticker picked: " + stickerId);
-                            stickerManager.setNeedsReload(true);
-                            tdLibWrapper.sendStickerMessage(chatInformation.id, stickerId, newMessageColumn.replyToMessageId);
-                            stickerPickerLoader.active = false;
-                            attachmentOptionsFlickable.isNeeded = false;
-                            newMessageInReplyToRow.inReplyToMessage = null;
-                            newMessageColumn.editMessageId = "0";
-                        }
-                    }
-
-                    Loader {
                         id: messageOverlayLoader
 
                         property var overlayMessage;
@@ -1795,19 +1787,6 @@ Page {
                                         attachmentPreviewRow.isDocument = true;
                                         controlSendButton();
                                     })
-                                }
-                            }
-                            IconButton {
-                                visible: chatPage.hasSendPrivilege("can_send_other_messages")
-                                icon.source: "../../images/icon-m-sticker.svg"
-                                icon.sourceSize {
-                                    width: Theme.iconSizeMedium
-                                    height: Theme.iconSizeMedium
-                                }
-                                highlighted: down || stickerPickerLoader.active
-                                onClicked: {
-                                    stickerPickerLoader.active = !stickerPickerLoader.active;
-                                    voiceNoteOverlayLoader.active = false;
                                 }
                             }
                             IconButton {
@@ -2167,9 +2146,36 @@ Page {
                         width: parent.width
                         anchors.horizontalCenter: parent.horizontalCenter
 
+                        // Sticker panel toggle; shows a keyboard icon while the panel is open.
+                        IconButton {
+                            id: stickerPanelButton
+                            anchors.bottom: parent.bottom
+                            anchors.bottomMargin: Theme.paddingSmall
+                            visible: !inlineQuery.userNameIsValid && newMessageColumn.editMessageId === "0"
+                                     && chatPage.hasSendPrivilege("can_send_other_messages")
+                            enabled: !voiceRecordButton.recording
+                            opacity: voiceRecordButton.recording ? 0 : 1
+                            icon.source: stickerPanelLoader.active ? "image://theme/icon-m-keyboard" : "../../images/icon-m-sticker.svg"
+                            icon.sourceSize {
+                                width: Theme.iconSizeMedium
+                                height: Theme.iconSizeMedium
+                            }
+                            onClicked: {
+                                if (stickerPanelLoader.active) {
+                                    stickerPanelLoader.active = false;
+                                    newMessageTextField.forceActiveFocus();
+                                } else {
+                                    attachmentOptionsFlickable.isNeeded = false;
+                                    voiceNoteOverlayLoader.active = false;
+                                    newMessageTextField.focus = false;
+                                    stickerPanelLoader.active = true;
+                                }
+                            }
+                        }
+
                         TextArea {
                             id: newMessageTextField
-                            width: parent.width - (attachmentIconButton.visible ? attachmentIconButton.width : 0) - (newMessageSendButton.visible ? newMessageSendButton.width : 0) - (voiceRecordButton.visible ? voiceRecordButton.width : 0) - (cancelInlineQueryButton.visible ? cancelInlineQueryButton.width : 0)
+                            width: parent.width - (stickerPanelButton.visible ? stickerPanelButton.width : 0) - (attachmentIconButton.visible ? attachmentIconButton.width : 0) - (newMessageSendButton.visible ? newMessageSendButton.width : 0) - (voiceRecordButton.visible ? voiceRecordButton.width : 0) - (cancelInlineQueryButton.visible ? cancelInlineQueryButton.width : 0)
                             // The voice recording bar is drawn over this space.
                             opacity: voiceRecordButton.recording ? 0 : 1
                             height: Math.min(chatContainer.height / 3, implicitHeight)
@@ -2202,6 +2208,7 @@ Page {
                             }
                             onActiveFocusChanged: {
                                 if (activeFocus) {
+                                    stickerPanelLoader.active = false
                                     messageOptionsDrawer.open = false
                                 }
                             }
@@ -2218,7 +2225,6 @@ Page {
                             onClicked: {
                                 if (attachmentOptionsFlickable.isNeeded) {
                                     attachmentOptionsFlickable.isNeeded = false;
-                                    stickerPickerLoader.active = false;
                                     voiceNoteOverlayLoader.active = false;
                                 } else {
                                     attachmentOptionsFlickable.isNeeded = true;
@@ -2295,6 +2301,33 @@ Page {
                         }
 
 
+                    }
+
+                    // Sticker panel, in the keyboard's place. Full page width, past the column's margins.
+                    Loader {
+                        id: stickerPanelLoader
+                        active: false
+                        x: -Theme.horizontalPageMargin
+                        width: parent.width + 2 * Theme.horizontalPageMargin
+                        height: active ? chatPage.stickerPanelHeight : 0
+                        visible: active
+                        sourceComponent: Component {
+                            StickerPanel {
+                                onStickerPicked: {
+                                    Debug.log("Sticker picked: " + stickerId);
+                                    tdLibWrapper.sendStickerMessage(chatInformation.id, stickerId, newMessageColumn.replyToMessageId);
+                                    // Refresh "recently used" for the next time the panel opens.
+                                    tdLibWrapper.getRecentStickers();
+                                    newMessageInReplyToRow.inReplyToMessage = null;
+                                    newMessageColumn.editMessageId = "0";
+                                }
+                            }
+                        }
+                        onActiveChanged: {
+                            if (active && item) {
+                                item.reload();
+                            }
+                        }
                     }
                 }
             }
