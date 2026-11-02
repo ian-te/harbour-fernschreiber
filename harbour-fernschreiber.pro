@@ -54,6 +54,7 @@ DISTFILES += qml/harbour-fernschreiber.qml \
     qml/components/InformationEditArea.qml \
     qml/components/InformationTextItem.qml \
     qml/components/InReplyToRow.qml \
+    qml/components/VoiceRecordButton.qml \
     qml/components/InlineQuery.qml \
     qml/components/LocationPreview.qml \
     qml/components/MessageListViewItem.qml \

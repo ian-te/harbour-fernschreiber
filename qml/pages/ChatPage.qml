@@ -30,7 +30,8 @@ import "../js/functions.js" as Functions
 Page {
     id: chatPage
     allowedOrientations: Orientation.All
-    backNavigation: !stickerPickerLoader.active
+    backNavigation: !stickerPickerLoader.active && voiceRecordButton.phase === "idle"
+    forwardNavigation: voiceRecordButton.phase === "idle"
 
     property bool loading: true;
     property bool isInitialized: false;
@@ -1780,19 +1781,6 @@ Page {
                                 }
                             }
                             IconButton {
-                                visible: chatPage.hasSendPrivilege("can_send_voice_notes")
-                                icon.source: "image://theme/icon-m-mic"
-                                icon.sourceSize {
-                                    width: Theme.iconSizeMedium
-                                    height: Theme.iconSizeMedium
-                                }
-                                highlighted: down || voiceNoteOverlayLoader.active
-                                onClicked: {
-                                    voiceNoteOverlayLoader.active = !voiceNoteOverlayLoader.active;
-                                    stickerPickerLoader.active = false;
-                                }
-                            }
-                            IconButton {
                                 visible: chatPage.hasSendPrivilege("can_send_documents")
                                 icon.source: "image://theme/icon-m-document"
                                 onClicked: {
@@ -2181,7 +2169,9 @@ Page {
 
                         TextArea {
                             id: newMessageTextField
-                            width: parent.width - (attachmentIconButton.visible ? attachmentIconButton.width : 0) - (newMessageSendButton.visible ? newMessageSendButton.width : 0) - (cancelInlineQueryButton.visible ? cancelInlineQueryButton.width : 0)
+                            width: parent.width - (attachmentIconButton.visible ? attachmentIconButton.width : 0) - (newMessageSendButton.visible ? newMessageSendButton.width : 0) - (voiceRecordButton.visible ? voiceRecordButton.width : 0) - (cancelInlineQueryButton.visible ? cancelInlineQueryButton.width : 0)
+                            // The voice recording bar is drawn over this space.
+                            opacity: voiceRecordButton.recording ? 0 : 1
                             height: Math.min(chatContainer.height / 3, implicitHeight)
                             anchors.verticalCenter: parent.verticalCenter
                             font.pixelSize: Theme.fontSizeSmall
@@ -2222,7 +2212,8 @@ Page {
                             icon.source: "image://theme/icon-m-attach?" +  (attachmentOptionsFlickable.isNeeded ? Theme.highlightColor : Theme.primaryColor)
                             anchors.bottom: parent.bottom
                             anchors.bottomMargin: Theme.paddingSmall
-                            enabled: !attachmentPreviewRow.visible && !stickerSetOverlayLoader.item
+                            enabled: !attachmentPreviewRow.visible && !stickerSetOverlayLoader.item && !voiceRecordButton.recording
+                            opacity: voiceRecordButton.recording ? 0 : 1
                             visible: !inlineQuery.userNameIsValid
                             onClicked: {
                                 if (attachmentOptionsFlickable.isNeeded) {
@@ -2240,7 +2231,7 @@ Page {
                             icon.source: "image://theme/icon-m-chat"
                             anchors.bottom: parent.bottom
                             anchors.bottomMargin: Theme.paddingSmall
-                            visible: !inlineQuery.userNameIsValid && (!appSettings.sendByEnter || attachmentPreviewRow.visible)
+                            visible: !inlineQuery.userNameIsValid && (!appSettings.sendByEnter || attachmentPreviewRow.visible) && !voiceRecordButton.visible
                             enabled: false
                             onClicked: {
                                 sendMessage();
@@ -2249,6 +2240,24 @@ Page {
                                     newMessageTextField.focus = false;
                                 }
                             }
+                        }
+
+                        // Hold to record a voice message; takes the send button's place while there is nothing to send.
+                        VoiceRecordButton {
+                            id: voiceRecordButton
+                            anchors.bottom: parent.bottom
+                            anchors.bottomMargin: Theme.paddingSmall
+                            barWidth: newMessageRow.width - width
+                            visible: recording || (!inlineQuery.userNameIsValid
+                                     && chatPage.hasSendPrivilege("can_send_voice_notes")
+                                     && newMessageTextField.text.length === 0
+                                     && !attachmentPreviewRow.visible
+                                     && newMessageColumn.editMessageId === "0")
+                            onSendRequested: {
+                                tdLibWrapper.sendVoiceNoteMessage(chatInformation.id, path, "", durationSeconds, waveform, newMessageColumn.replyToMessageId);
+                                newMessageInReplyToRow.inReplyToMessage = null;
+                            }
+                            onTapped: appNotification.show(qsTr("Hold to record, release to send"))
                         }
 
                         Item {
