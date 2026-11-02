@@ -141,10 +141,30 @@ FernschreiberUtils::FernschreiberUtils(QObject *parent)
         temporaryDirectory.mkpath(temporaryDirectoryPath);
     }
 
+    // Telegram voice notes are Ogg Opus. Vorbis plays on Android and desktop, but iOS
+    // can't play it and Telegram's speech recognition rejects it. Fall back to Vorbis
+    // only where GStreamer has no Opus encoder.
+    QString voiceNoteCodec("audio/vorbis");
+    const QStringList supportedCodecs = this->audioRecorder.supportedAudioCodecs();
+    for (const QString &codec : supportedCodecs) {
+        if (codec.contains("opus", Qt::CaseInsensitive)) {
+            voiceNoteCodec = codec;
+            break;
+        }
+    }
+    LOG("Voice note codec:" << voiceNoteCodec << "of" << supportedCodecs);
+
     QAudioEncoderSettings encoderSettings;
-    encoderSettings.setCodec("audio/vorbis");
+    encoderSettings.setCodec(voiceNoteCodec);
     encoderSettings.setChannelCount(1);
-    encoderSettings.setQuality(QMultimedia::LowQuality);
+    if (voiceNoteCodec.contains("opus", Qt::CaseInsensitive)) {
+        // What Telegram's own apps send: 48 kHz mono at about 32 kbit/s.
+        encoderSettings.setSampleRate(48000);
+        encoderSettings.setEncodingMode(QMultimedia::ConstantBitRateEncoding);
+        encoderSettings.setBitRate(32000);
+    } else {
+        encoderSettings.setQuality(QMultimedia::LowQuality);
+    }
     this->audioRecorder.setEncodingSettings(encoderSettings);
     this->audioRecorder.setContainerFormat("ogg");
 
