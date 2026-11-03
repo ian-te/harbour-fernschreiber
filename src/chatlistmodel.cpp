@@ -388,6 +388,7 @@ ChatListModel::ChatListModel(TDLibWrapper *tdLibWrapper, AppSettings *appSetting
 {
     this->tdLibWrapper = tdLibWrapper;
     this->appSettings = appSettings;
+    connect(appSettings, &AppSettings::countMutedChatsChanged, this, [this]() { calculateUnreadState(); });
     connect(tdLibWrapper, SIGNAL(newChatDiscovered(QString, QVariantMap)), this, SLOT(handleChatDiscovered(QString, QVariantMap)));
     connect(tdLibWrapper, SIGNAL(chatLastMessageUpdated(QString, QString, QVariantMap)), this, SLOT(handleChatLastMessageUpdated(QString, QString, QVariantMap)));
     connect(tdLibWrapper, SIGNAL(chatOrderUpdated(QString, QString)), this, SLOT(handleChatOrderUpdated(QString, QString)));
@@ -586,10 +587,14 @@ void ChatListModel::calculateUnreadState()
         LOG("Online-only mode: Calculating unread state on my own...");
         int unreadMessages = 0;
         int unreadChats = 0;
+        const bool countMuted = this->appSettings->countMutedChats();
         QListIterator<ChatData*> chatIterator(this->chatList);
         while (chatIterator.hasNext()) {
             ChatData *currentChat = chatIterator.next();
             int unreadCount = currentChat->unreadCount();
+            if (!countMuted && currentChat->chatData.value("notification_settings").toMap().value("mute_for").toInt() > 0) {
+                continue;
+            }
             if (unreadCount > 0) {
                 unreadChats++;
                 unreadMessages += unreadCount;

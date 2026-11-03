@@ -28,6 +28,17 @@ CoverBackground {
 
     property int unreadMessages: 0
     property int unreadChats: 0
+    // Like Telegram's badge: muted chats (usually channels) are left out unless the user asks.
+    // TDLib's main-list counters already exclude the archive.
+    property var messageCountInfo: ({})
+    property var chatCountInfo: ({})
+
+    function updateUnreadCounts() {
+        var muted = appSettings.countMutedChats;
+        unreadMessages = (muted ? messageCountInfo.unread_count : messageCountInfo.unread_unmuted_count) || 0;
+        unreadChats = (muted ? chatCountInfo.unread_count : chatCountInfo.unread_unmuted_count) || 0;
+        setUnreadInfoText();
+    }
     readonly property bool authenticated: tdLibWrapper.authorizationState === TelegramAPI.AuthorizationReady
     property int connectionState: TelegramAPI.WaitingForNetwork
 
@@ -57,20 +68,20 @@ CoverBackground {
 
     Component.onCompleted: {
         coverPage.connectionState = tdLibWrapper.getConnectionState();
-        coverPage.unreadMessages = tdLibWrapper.getUnreadMessageInformation().unread_count || 0;
-        coverPage.unreadChats = tdLibWrapper.getUnreadChatInformation().unread_count || 0;
-        setUnreadInfoText();
+        coverPage.messageCountInfo = tdLibWrapper.getUnreadMessageInformation();
+        coverPage.chatCountInfo = tdLibWrapper.getUnreadChatInformation();
+        updateUnreadCounts();
     }
 
     Connections {
         target: tdLibWrapper
         onUnreadMessageCountUpdated: {
-            coverPage.unreadMessages = messageCountInformation.unread_count;
-            setUnreadInfoText();
+            coverPage.messageCountInfo = messageCountInformation;
+            updateUnreadCounts();
         }
         onUnreadChatCountUpdated: {
-            coverPage.unreadChats = chatCountInformation.unread_count;
-            setUnreadInfoText();
+            coverPage.chatCountInfo = chatCountInformation;
+            updateUnreadCounts();
         }
         onAuthorizationStateChanged: {
             setUnreadInfoText();
@@ -78,6 +89,15 @@ CoverBackground {
         onConnectionStateChanged: {
             coverPage.connectionState = connectionState;
             setUnreadInfoText();
+        }
+    }
+
+    Connections {
+        target: appSettings
+        onCountMutedChatsChanged: {
+            if (!appSettings.onlineOnlyMode) {
+                updateUnreadCounts();
+            }
         }
     }
 

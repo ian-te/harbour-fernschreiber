@@ -43,6 +43,7 @@ namespace {
     const QString KEY_FOCUS_TEXTAREA_ON_CHAT_OPEN("focusTextAreaOnChatOpen");
     const QString KEY_SPONSORED_MESS("sponsoredMess");
     const QString KEY_HIGHLIGHT_UNREADCONVS("highlightUnreadConversations");
+    const QString KEY_COUNT_MUTED_CHATS("countMutedChats");
     const QString KEY_SHOW_REACTION_BUTTON("showReactionButton");
     const QString KEY_AUTOPLAY_ANIMATED_GIFS("autoplayAnimatedGifs");
 }
@@ -329,6 +330,20 @@ void AppSettings::setHighlightUnreadConversations(bool enable)
         LOG(KEY_HIGHLIGHT_UNREADCONVS << enable);
         settings.setValue(KEY_HIGHLIGHT_UNREADCONVS, enable);
         emit highlightUnreadConversationsChanged();
+    }
+}
+
+bool AppSettings::countMutedChats() const
+{
+    return settings.value(KEY_COUNT_MUTED_CHATS, false).toBool();
+}
+
+void AppSettings::setCountMutedChats(bool enable)
+{
+    if (countMutedChats() != enable) {
+        LOG(KEY_COUNT_MUTED_CHATS << enable);
+        settings.setValue(KEY_COUNT_MUTED_CHATS, enable);
+        emit countMutedChatsChanged();
     }
 }
 

@@ -85,6 +85,17 @@ AccordionItem {
 
             TextSwitch {
                 width: parent.columnWidth
+                checked: appSettings.countMutedChats
+                text: qsTr("Count muted chats")
+                description: qsTr("Include muted chats and channels in the unread counter on the cover")
+                automaticCheck: false
+                onClicked: {
+                    appSettings.countMutedChats = !checked
+                }
+            }
+
+            TextSwitch {
+                width: parent.columnWidth
                 checked: appSettings.useOpenWith
                 text: qsTr("Open-with menu integration")
                 description: qsTr("Integrate Fernschreiber into open-with menu of Sailfish OS")

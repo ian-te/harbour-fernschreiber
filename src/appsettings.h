@@ -45,6 +45,7 @@ class AppSettings : public QObject {
     Q_PROPERTY(bool delayMessageRead READ delayMessageRead WRITE setDelayMessageRead NOTIFY delayMessageReadChanged)
     Q_PROPERTY(bool focusTextAreaOnChatOpen READ getFocusTextAreaOnChatOpen WRITE setFocusTextAreaOnChatOpen NOTIFY focusTextAreaOnChatOpenChanged)
     Q_PROPERTY(bool highlightUnreadConversations READ highlightUnreadConversations WRITE setHighlightUnreadConversations NOTIFY highlightUnreadConversationsChanged)
+    Q_PROPERTY(bool countMutedChats READ countMutedChats WRITE setCountMutedChats NOTIFY countMutedChatsChanged)
     Q_PROPERTY(bool showReactionButton READ showReactionButton WRITE setShowReactionButton NOTIFY showReactionButtonChanged)
     Q_PROPERTY(bool autoplayAnimatedGifs READ autoplayAnimatedGifs WRITE setAutoplayAnimatedGifs NOTIFY autoplayAnimatedGifsChanged)
     Q_PROPERTY(SponsoredMess sponsoredMess READ getSponsoredMess WRITE setSponsoredMess NOTIFY sponsoredMessChanged)
@@ -129,6 +130,9 @@ public:
     bool highlightUnreadConversations() const;
     void setHighlightUnreadConversations(bool enable);
 
+    bool countMutedChats() const;
+    void setCountMutedChats(bool enable);
+
     bool showReactionButton() const;
     void setShowReactionButton(bool enable);
 
@@ -160,6 +164,7 @@ signals:
     void delayMessageReadChanged();
     void focusTextAreaOnChatOpenChanged();
     void highlightUnreadConversationsChanged();
+    void countMutedChatsChanged();
     void showReactionButtonChanged();
     void sponsoredMessChanged();
     void autoplayAnimatedGifsChanged();
